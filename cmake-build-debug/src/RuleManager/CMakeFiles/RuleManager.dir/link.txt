@@ -1,0 +1,2 @@
+/usr/bin/ar qc libRuleManager.a  CMakeFiles/RuleManager.dir/RuleManager.cpp.o
+/usr/bin/ranlib libRuleManager.a
