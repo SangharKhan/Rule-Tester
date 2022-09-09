@@ -15,6 +15,11 @@ struct Rules{
 
 } typedef Rules;
 
+struct ClearTags : Rules{
+    std::vector<int> tags;
+    std::string getValue(int tag){ return "";}
+};
+
 struct EditTags : Rules {
     int subType;
     std::map<int, std::string> msg;

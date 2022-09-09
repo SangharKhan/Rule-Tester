@@ -5,6 +5,9 @@
 #define RULETESTER_APPLICATION_H
 #include <iostream>
 #include "RuleManager/RuleManager.h"
+#include "RuleRouting/RuleRouting.h"
+#include "quickfix/Message.h"
+#include <fmt/color.h>
 
 namespace RuleTesting {
     class Application {

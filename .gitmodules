@@ -1,0 +1,6 @@
+[submodule "3rdPartyDirs/redis-plus-plus"]
+	path = 3rdPartyDirs/redis-plus-plus
+	url = git@github.com:sewenew/redis-plus-plus.git
+[submodule "3rdPartyDirs/fmt"]
+	path = 3rdPartyDirs/fmt
+	url = https://github.com/fmtlib/fmt.git

@@ -6,13 +6,33 @@
 #define RULETESTER_RULEROUTING_H
 
 #include <iostream>
+#include <sw/redis++/redis++.h>
+#include <fstream>
+#include <map>
 
 class RuleRouting {
 private:
-    static RuleRouting *sInstance;
+    sw::redis::Redis* m_pRedis = nullptr;
+    std::string m_host = "";
+    int m_port = 0;
+    std::string addRedisData(const std::string& key, const std::string& id, const std::string& name, const std::string& value);
+    std::string getRedisRange(const std::string& key, const std::string& start, const std::string& end);
+    int delItems(std::string_view& );
+    bool connect();
+    bool setHostPort();
 public:
-    void send(std::string, bool);
-    static RuleRouting& getInstance();
+    bool push(const std::string& name, const std::string& value);
+    std::string getValue(std::string name);
+    bool del(std::string_view key);
+    bool keyExists(std::string key);
+    RuleRouting(){}
+    ~RuleRouting()
+    {
+        if (m_pRedis != nullptr)
+        {
+            delete m_pRedis;
+        }
+    }
 };
 
 

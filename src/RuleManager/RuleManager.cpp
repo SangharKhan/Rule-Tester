@@ -4,149 +4,6 @@
 
 #include "../../include/RuleManager/RuleManager.h"
 
-
-void print(EditTags* e)
-{
-    std::cout << "SubType: " << e->subType << std::endl;
-    for(auto t : e->msg)
-    {
-        std::cout << "Tag: " << t.first << std::endl;
-        std::cout << "Value: " << t.second << std::endl;
-    }
-}
-
-void print(CopyTags* c)
-{
-    for (auto tf : c->toFromPairs)
-    {
-        std::cout << "From: " << tf.first << std::endl;
-        std::cout << "To: " << tf.second << std::endl;
-    }
-}
-
-void print(SetValue* s)
-{
-    for(auto s : s->msg)
-    {
-        std::cout << "Tag: " << s.first << std::endl;
-        std::cout << "Value: " << s.second << std::endl;
-    }
-}
-
-void print(MapTagValue* m)
-{
-    for (auto t : m->msg)
-    {
-        typedef std::multimap<int, std::string>::iterator ITR;
-        for (ITR itr1 = m->fromTagValue.begin(), itr2 = m->toTagValue.begin(); itr1 != m->fromTagValue.end() && itr2 != m->toTagValue.end(); itr1++,itr2++)
-        {
-            if (itr1->first == t.first)
-            {
-                std::cout << "If Tag: '" << itr1->first << "' = '" << itr1->second <<"', than ";
-            }
-
-            if(itr2->first == t.second)
-            {
-                std::cout << "Tag: '" << itr2->first << "' = '" << itr2->second <<"'" << std::endl;
-            }
-        }
-    }
-}
-
-void print(Forward* f)
-{
-    for (auto f : f->clientTargetPairs)
-    {
-        std::cout << "Sender: '" << f.first << "' to Target: '" << f.second << "'" << std::endl;
-    }
-}
-
-void print(RepeatingGroupRules* r)
-{
-    auto cn = r->CreateNew ? "True" : "False" ;
-    std::cout << "GroupTag: " << r->groupTag << std::endl;
-    std::cout << "StartTag: " << r->startTag << std::endl;
-    std::cout << "CreateNew: " << cn << std::endl;
-    std::cout << "LegNum: " << r->legNum << std::endl;
-
-    std::cout << "Rules:" << std::endl;
-    for (auto rl : r->rules)
-    {
-        std::cout << "RuleType: " << rl->Type << std::endl;
-        if (rl->Type == "EditTags")
-        {
-            auto *edit = (EditTags*)rl;
-            print(edit);
-        }
-        else if (rl->Type == "CopyTags")
-        {
-            auto *copy = (CopyTags*)rl;
-            print(copy);
-        }
-        else if (rl->Type == "SetValue")
-        {
-            auto *set = (SetValue*)rl;
-            print(set);
-        }
-        else if (rl->Type == "MapTagValue")
-        {
-            auto *_map = (MapTagValue*)rl;
-            print(_map);
-        }
-        else if (rl->Type == "Forward")
-        {
-            auto *frwd = (Forward*)rl;
-            print(frwd);
-        }
-        else if (rl->Type == "RepeatingGroupRules")
-        {
-            auto * rpg = (RepeatingGroupRules*)rl;
-            print(rpg);
-        }
-    }
-
-    for (auto l: r->legs)
-    {
-        std::cout << "LegNo: " << l.first << std::endl;
-        for (auto vl : l.second)
-        {
-            std::cout << "LegRuleType: " << vl->Type << std::endl;
-            if (vl->Type == "EditTags")
-            {
-                auto *edit = (EditTags*)vl;
-                print(edit);
-            }
-            else if (vl->Type == "CopyTags")
-            {
-                auto *copy = (CopyTags*)vl;
-                print(copy);
-            }
-            else if (vl->Type == "SetValue")
-            {
-                auto *set = (SetValue*)vl;
-                print(set);
-            }
-            else if (vl->Type == "MapTagValue")
-            {
-                auto *_map = (MapTagValue*)vl;
-                print(_map);
-            }
-            else if (vl->Type == "Forward")
-            {
-                auto *frwd = (Forward*)vl;
-                print(frwd);
-            }
-            else if (vl->Type == "RepeatingGroupRules")
-            {
-                auto * rpg = (RepeatingGroupRules*)vl;
-                print(rpg);
-            }
-        }
-    }
-}
-
-
-
 Poco::DynamicStruct RuleManager::parseJson(std::string str)
 {
     Poco::JSON::Parser parser;
@@ -281,7 +138,16 @@ void RuleManager::MapValues(Poco::Dynamic::Var routingrules, Rules* rulePtr)
 
 void RuleManager::getRules(Poco::Dynamic::Var routingrules, std::string type, Rules* rulePtr)
 {
-    if (type == "EditTags")
+    if (type == "ClearTags")
+    {
+        auto *clearRule = (ClearTags*)rulePtr;
+        for (auto rule : routingrules)
+        {
+            int tag = std::stoi(rule.toString());
+            clearRule->tags.push_back(tag);
+        }
+    }
+    else if (type == "EditTags")
     {
         auto *editRule = (EditTags*)rulePtr;
         for (auto rule : routingrules){
@@ -467,6 +333,15 @@ void RuleManager::pRuleSet(Poco::Dynamic::Var routingrules,  std::vector<Rules*>
                 if (vRules != nullptr)
                     vRules->push_back((Rules*)r);
             }
+            else if (strct["Type"].toString() == "ClearTags")
+            {
+                ClearTags * ct = new ClearTags();
+                setCondition(&ct->condition, condition);
+                ct->Type = strct["Type"].toString();
+                getRules(strct["Tags"], strct["Type"].toString(), ct);
+                if (vRules != nullptr)
+                    vRules->push_back((Rules*)ct);
+            }
         }
     }
 }
@@ -481,51 +356,671 @@ void RuleManager::loadConfig()
     if (strct.contains("RoutingRuleSet"))
     {
         pRuleSet(strct["RoutingRuleSet"]);
+    }
+}
 
-        for (auto in : inComingRules)
-        {
-            std::cout << "SenderCompId: " << in.first << std::endl;
-            for(auto v : in.second)
+void RuleManager::validateEditTags(EditTags* e, bool isRepeation = false)
+{
+    int subType = e->subType;
+    int i = 1;
+    switch (subType)
+    {
+        case 1: {
+            for (auto v : e->msg)
             {
+                if(m_pOrgMsg->isSetField(v.first) && m_pRuleMsg->isSetField(v.first))
+                {
+                    fmt::print("\n");
+                    fmt::print(fmt::emphasis::bold | fg(fmt::color::orange), "Rule No.: {}\n",i);
+                    ++i;
+                    std::string str = m_pOrgMsg->getField(v.first);
+                    str = v.second + str;
+                    if (str == m_pRuleMsg->getField(v.first))
+                    {
+                        fmt::print(fg(fmt::color::light_green), "Sub-Type: Prepend\n");
+                        fmt::print(fg(fmt::color::light_green), "Tag: {0}\nOrginal Value: {1}\nEdit Value: {2}\n", v.first,m_pOrgMsg->getField(v.first),v.second);
+                        fmt::print(fg(fmt::color::light_green), "Current Value: {0}\nExpected Value: {1}\n", m_pRuleMsg->getField(v.first), str);
+                        fmt::print(fg(fmt::color::golden_rod), "Status: Passed\n");
+                      //  std::cout << "Edit Tag Rules: Tag: " << v.first << ", Value: '" << m_pOrgMsg->getField(v.first) <<  "' to '" << str <<"'"<< std::endl;
+                    }
+                    else
+                    {
+                        fmt::print(fg(fmt::color::red), "Edit Tag Rule Failed with Wrong Value:\n");
+                        fmt::print(fg(fmt::color::red), "Tag: {0}\nCurrent Value: {1}\nExpected Value: {2}\n",v.first,m_pRuleMsg->getField(v.first), str);
+                        fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
 
-                std::cout << "Type: " << v->Type << std::endl;
-                for (auto m : v->condition)
-                {
-                    std::cout << "Condition: '" << m.first << "=" << m.second << "'" << std::endl;
+                    }
                 }
+                else
+                {
+                    fmt::print(fg(fmt::color::red),"No Edit Tag Rules Applied On Msg.\n");
+                    fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+                }
+            }
+            break;
+        }
+        case 2: {
+            for (auto v : e->msg)
+            {
+                if(m_pOrgMsg->isSetField(v.first) && m_pRuleMsg->isSetField(v.first))
+                {
+                    fmt::print("\n");
+                    fmt::print(fmt::emphasis::bold | fg(fmt::color::orange), "Rule No.: {}\n",i);
+                    ++i;
+                    std::string str = m_pOrgMsg->getField(v.first);
+                    str = str + v.second;
+                    if (str == m_pRuleMsg->getField(v.first))
+                    {
+                        fmt::print(fg(fmt::color::light_green), "Sub-Type: Append\n");
+                        fmt::print(fg(fmt::color::light_green), "Tag: {0}\nOrginal Value: {1}\nEdit Value: {2}\n", v.first,m_pOrgMsg->getField(v.first),v.second);
+                        fmt::print(fg(fmt::color::light_green), "Current Value: {0}\nExpected Value: {1}\n", m_pRuleMsg->getField(v.first), str);
+                        fmt::print(fg(fmt::color::golden_rod), "Status: Passed\n");
+                    }
+                    else
+                    {
+                        fmt::print(fg(fmt::color::red), "Edit Tag Rule Failed with Wrong Value:\n");
+                        fmt::print(fg(fmt::color::red), "Tag: {0}\nCurrent Value: {1}\nExpected Value: {2}\n",v.first,m_pRuleMsg->getField(v.first), str);
+                        fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+                    }
+                }
+                else
+                {
+                    fmt::print(fg(fmt::color::red),"No Edit Tag Rules Applied On Msg.\n");
+                    fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+                }
+            }
+            break;
+        }
+        case 3: {
+            break;
+        }
+        case 4: {
+            break;
+        }
+        case 5: {
+            break;
+        }
+        case 6: {
+            break;
+        }
+        case 7: {
+            break;
+        }
+        case 8: {
+            break;
+        }
+        default: {
+            std::cerr << "Wrong SubType." << std::endl;
+            break;
+        }
+    }
+}
 
-                if (v->Type == "EditTags")
+void RuleManager::validateCopyTags(CopyTags* c, bool isRepeation = false)
+{
+    int i = 1;
+
+    for (auto cft : c->toFromPairs)
+    {
+        if ( (m_pRuleMsg->isSetField(cft.first) || m_pRuleMsg->getHeader().isSetField(cft.first)) && (m_pRuleMsg->isSetField(cft.second) || m_pRuleMsg->getHeader().isSetField(cft.second)))
+        {
+            fmt::print("\n");
+            fmt::print(fg(fmt::color::orange), "Rule No.: {}\n",i);
+            ++i;
+            std::string from;
+            std::string to;
+
+            if (m_pRuleMsg->isSetField(cft.first))
+            {
+                from = m_pRuleMsg->getField(cft.first);
+            }
+            else if(m_pRuleMsg->getHeader().isSetField(cft.first))
+            {
+                from = m_pRuleMsg->getHeader().getField(cft.first);
+            }
+
+            if (m_pRuleMsg->isSetField(cft.second))
+            {
+                to = m_pRuleMsg->getField(cft.second);
+            }
+            else if(m_pRuleMsg->getHeader().isSetField(cft.second))
+            {
+                to = m_pRuleMsg->getHeader().getField(cft.second);
+            }
+
+            if (from == to)
+            {
+                fmt::print(fg(fmt::color::light_green), "Copy Rules Value Copied.\n");
+                fmt::print(fg(fmt::color::light_green), "From Tag: {0}\nValue: {1}\n",cft.first, from);
+                fmt::print(fg(fmt::color::light_green), "To Tag: {0}\nValue: {1}\n",cft.second, to);
+                fmt::print(fg(fmt::color::golden_rod), "Status: Passed");
+               // std::cout << "CopyTag Rules: From Tag: " << cft.first <<" -----> To Tag: " << cft.second << std::endl;
+            }
+            else
+            {
+                fmt::print(fg(fmt::color::red), "Copy Rules Value Not Copied.\n");
+                fmt::print(fg(fmt::color::red), "From Tag: {0}\nValue: {1}\n",cft.first, from);
+                fmt::print(fg(fmt::color::red), "To Tag: {0}\nValue: {1}\n",cft.second, to);
+                fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+//                std::cout << " Tag: " << cft.first << " to Tag: " << cft.second << std::endl;
+            }
+
+        }
+        else
+        {
+            fmt::print(fg(fmt::color::red), "No Copy Tag Rules Applied On Msg.\n");
+            fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+            //std::cout << " For Tag: " << cft.first << " to Tag: " << cft.second << std::endl;
+        }
+    }
+}
+
+void RuleManager::validateSetValue(SetValue* s, bool isRepeation = false)
+{
+    if (isRepeation)
+    {
+        fmt::print(fmt::emphasis::italic | fg(fmt::color::light_yellow), "Repeating Group: \n");
+    }
+    int i = 1;
+    for (auto val : s->msg)
+    {
+        if (m_pRuleMsg->isSetField(val.first))
+        {
+            fmt::print("\n");
+            fmt::print(fg(fmt::color::orange), "Rule No.: {}\n",i);
+            ++i;
+            if (m_pRuleMsg->getField(val.first) == val.second)
+            {
+                fmt::print(fg(fmt::color::light_green), "Tag: {0}\nCurrent Value: {1}\nExpected Value: {2}\n", val.first, m_pRuleMsg->getField(val.first) ,val.second);
+                fmt::print(fg(fmt::color::golden_rod), "Status: Passed\n");
+              //  std::cout << "Set Value Rules: Tag: " << val.first << ", Value: " << val.second << std::endl;
+            }
+            else
+            {
+                fmt::print(fg(fmt::color::red), "Set Value Rule: InCorrect Value.\n");
+                fmt::print(fg(fmt::color::red), "Tag: {0}\nCurrent Value: {1}\nExpected Value: {2}\n", val.first, m_pRuleMsg->getField(val.first) ,val.second);
+                fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+            }
+        }
+        else
+        {
+            fmt::print(fg(fmt::color::red), " Set Value Rules Applied On Msg.\n");
+            fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+           // std::cout << "No Set Value Rules Applied On Msg For Tag: " << val.first << std::endl;
+        }
+    }
+}
+
+void RuleManager::validateMapTagValue(MapTagValue* m, bool isRepeation = false)
+{
+    int i = 1;
+    for (auto v : m->msg)
+    {
+        fmt::print("\n");
+        fmt::print(fg(fmt::color::orange), "Rule No.: {}\n",i);
+        ++i;
+        if (m_pRuleMsg->isSetField(v.first) && m_pRuleMsg->isSetField(v.second))
+        {
+            bool hasSymbol = false;
+            bool hasValue = false;
+            for(auto itr1 = m->fromTagValue.find(v.first); itr1 != m->fromTagValue.end(); itr1++)
+            {
+                if (m_pRuleMsg->getField(v.first) == itr1->second)
                 {
-                    auto *edit = (EditTags*)v;
-                    print(edit);
+                    for(auto itr2 = m->toTagValue.find(v.second); itr2 != m->toTagValue.end(); itr2++)
+                    {
+                        if (m_pRuleMsg->getField(v.second) == itr2->second)
+                        {
+                            fmt::print(fg(fmt::color::light_green), "From Tag: {0}\nTo Tag: {1}\n", v.first, v.second);
+                            fmt::print(fg(fmt::color::light_green), "Current Value: {0}\nExpected Value: {1}\n", m_pRuleMsg->getField(v.second), itr2->second);
+                            fmt::print(fg(fmt::color::golden_rod), "Status: Passed\n");
+                            //std::cout << "Tag Value Map Rules: Tag: " << v.first << ", Value: " << itr1->second << "\tTag: " << v.second << ", Value: " << itr2->second << std::endl;
+                            hasValue = true;
+                        }
+                    }
+                    if (!hasValue)
+                    {
+                        fmt::print(fg(fmt::color::red),"Value Not Mapped.\n");
+                        fmt::print(fg(fmt::color::red),"From Tag: {0}\nTo Tag: {1}\n", v.first, v.second);
+                        fmt::print(fg(fmt::color::red), "Current Value: {}\n", m_pRuleMsg->getField(v.second));
+                        fmt::print(fg(fmt::color::red),"Expected Values: \n");
+                        int i = 1;
+                        for (auto itr = m->toTagValue.find(v.second); itr != m->toTagValue.end(); itr++, i++)
+                        {
+                            fmt::print(fg(fmt::color::red),"{0}) {1}\n", i, itr->second);
+                        }
+                        fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+                    }
+                    hasSymbol = true;
                 }
-                else if (v->Type == "CopyTags")
+            }
+
+            if (!hasSymbol)
+            {
+                fmt::print(fg(fmt::color::red), "Wrong Value Of From Tag\n");
+                fmt::print(fg(fmt::color::red), "From Tag: {}\n",v.first);
+                fmt::print(fg(fmt::color::red), "Current Value: {}\n", m_pRuleMsg->getField(v.first));
+                fmt::print(fg(fmt::color::red), "Expected Values:\n");
+                int i = 1;
+                for (auto itr = m->fromTagValue.find(v.second); itr != m->fromTagValue.end(); itr++, i++)
                 {
-                    auto *copy = (CopyTags*)v;
-                    print(copy);
+                    fmt::print(fg(fmt::color::red),"{0}) {1}\n", i, itr->second);
                 }
-                else if (v->Type == "SetValue")
-                {
-                    auto *set = (SetValue*)v;
-                    print(set);
-                }
-                else if (v->Type == "MapTagValue")
-                {
-                    auto *_map = (MapTagValue*)v;
-                    print(_map);
-                }
-                else if (v->Type == "Forward")
-                {
-                    auto *frwd = (Forward*)v;
-                    print(frwd);
-                }
-                else if (v->Type == "RepeatingGroupRules")
-                {
-                    auto * rpg = (RepeatingGroupRules*)v;
-                    print(rpg);
-                }
+                fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+                //std::cout << ", Value For Tag: " << v.second << " is '" << m_pRuleMsg->getField(v.second) << "', Expected Value is '" << itr2->second << "'" << std::endl;
+            }
+        }
+        else
+        {
+            fmt::print(fg(fmt::color::red), "No Map Tag Value Rule Applied On Msg.\n");
+            fmt::print(fg(fmt::color::red), "From Tag: {}\nTo Tag: {}\n",v.first, v.second);
+            fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+          //  std::cout << "N For Tag: " << v.first << ", On Tag: " << v.second << std::endl;
+        }
+    }
+}
+
+void RuleManager::validateForward(Forward* f, bool isRepeation = false)
+{
+
+}
+
+void RuleManager::validateClearTag(ClearTags* ct,bool isRepeation = false)
+{
+    if (isRepeation)
+    {
+
+        fmt::print(fmt::emphasis::italic | fg(fmt::color::light_yellow), "Repeating Group: \n");
+    }
+    int i = 1;
+    for (auto t : ct->tags)
+    {
+        fmt::print("\n");
+        fmt::print(fg(fmt::color::orange), "Rule No.: {}\n",i);
+        ++i;
+        if (!m_pRuleMsg->isSetField(t))
+        {
+            fmt::print(fg(fmt::color::light_green), "Tag: {}\n", t);
+            fmt::print(fg(fmt::color::golden_rod), "Status: Passed\n");
+           // std::cout << "Clear Tag Rules: Tag: '" << t << "' could not be found, Rule Applied Successfully" << std::endl;
+        }
+        else
+        {
+            fmt::print(fg(fmt::color::red), "Tag: '{}' was founded in Msg, Rule Applied Unsuccessfully\n", t);
+            fmt::print(fg(fmt::color::orange_red), "Status: Failed\n");
+         //   std::cout << "Clear Tag Rules: Tag: '" << t << "' was founded, Rule Applied Unsuccessfully" << std::endl;
+        }
+    }
+}
+
+void RuleManager::validateRepeatingGroupRules(RepeatingGroupRules* r, bool isRepeation = false)
+{
+    if (m_pRuleMsg->isSetField(r->groupTag) && m_pRuleMsg->isSetField(r->startTag))
+    {
+        fmt::print(fg(fmt::color::green), "Group Tag: {0}\tValue: {1}\n", r->groupTag,m_pRuleMsg->getField(r->groupTag));
+        fmt::print(fg(fmt::color::green), "Start Tag: {0}\tValue: {1}\n", r->startTag, m_pRuleMsg->getField(r->startTag));
+    }
+    int i = 1;
+    for (auto rl : r->rules)
+    {
+        //std::cout << "RuleType: " << rl->Type << std::endl;
+        fmt::print("\n");
+        fmt::print(fg(fmt::color::orange), "Rule No.: {}",i);
+        ++i;
+        if (rl->Type == "EditTags")
+        {
+            fmt::print("\n\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "======= Edit Tag Rules =======");
+            fmt::print("\n\n");
+            auto *edit = (EditTags*)rl;
+            validateEditTags(edit,true);
+            fmt::print("\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "==============================");
+            fmt::print("\n");
+        }
+        else if (rl->Type == "CopyTags")
+        {
+            fmt::print("\n\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "======= Copy Tag Rules =======");
+            fmt::print("\n\n");
+            auto *copy = (CopyTags*)rl;
+            validateCopyTags(copy,true);
+            fmt::print("\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "==============================");
+            fmt::print("\n");
+        }
+        else if (rl->Type == "SetValue")
+        {
+            fmt::print("\n\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "======= SetValue Tag Rules =======");
+            fmt::print("\n\n");
+            auto *set = (SetValue*)rl;
+            validateSetValue(set,true);
+            fmt::print("\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "==============================");
+            fmt::print("\n");
+        }
+        else if (rl->Type == "MapTagValue")
+        {
+            fmt::print("\n\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "======= Map Tag Rules =======");
+            fmt::print("\n\n");
+            auto *_map = (MapTagValue*)rl;
+            validateMapTagValue(_map,true);
+            fmt::print("\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "==============================");
+            fmt::print("\n");
+        }
+        else if (rl->Type == "Forward")
+        {
+//            fmt::print("\n\n");
+//            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "======= Forward Rules =======");
+//            fmt::print("\n\n");
+//            auto *frwd = (Forward*)rl;
+//            validateForward(frwd,true);
+//            fmt::print("\n");
+//            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "==============================");
+//            fmt::print("\n");
+        }
+        else if (rl->Type == "RepeatingGroupRules")
+        {
+            fmt::print("\n\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "======= Repeating Group Tag Rules =======");
+            fmt::print("\n\n");
+            auto * rpg = (RepeatingGroupRules*)rl;
+            validateRepeatingGroupRules(rpg,true);
+            fmt::print("\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "==============================");
+            fmt::print("\n");
+        }
+        else if (rl->Type == "ClearTags")
+        {
+            fmt::print("\n\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "======= Clear Tag Rules =======");
+            fmt::print("\n\n");
+            auto *clear = (ClearTags*)rl;
+            validateClearTag(clear,true);
+            fmt::print("\n");
+            fmt::print(bg(fmt::color::yellow) | fg(fmt::color::dark_blue), "==============================");
+            fmt::print("\n");
+        }
+    }
+    for (auto l: r->legs)
+    {
+        fmt::print("\n");
+        fmt::print(fg(fmt::color::orange), "Leg No.: {}",l.first);
+        for (auto vl : l.second)
+        {
+            if (vl->Type == "EditTags")
+            {
+                fmt::print("\n\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "======= Edit Tag Rules =======");
+                fmt::print("\n\n");
+                auto *edit = (EditTags*)vl;
+                validateEditTags(edit,true);
+                fmt::print("\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "==============================");
+                fmt::print("\n");
+            }
+            else if (vl->Type == "CopyTags")
+            {
+                fmt::print("\n\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "======= Copy Tag Rules =======");
+                fmt::print("\n\n");
+                auto *copy = (CopyTags*)vl;
+                validateCopyTags(copy,true);
+                fmt::print("\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "==============================");
+                fmt::print("\n");
+            }
+            else if (vl->Type == "SetValue")
+            {
+                fmt::print("\n\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "======= SetValue Tag Rules =======");
+                fmt::print("\n\n");
+                auto *set = (SetValue*)vl;
+                validateSetValue(set,true);
+                fmt::print("\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "==============================");
+                fmt::print("\n");
+            }
+            else if (vl->Type == "MapTagValue")
+            {
+                fmt::print("\n\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "======= Map Tag Rules =======");
+                fmt::print("\n\n");
+                auto *_map = (MapTagValue*)vl;
+                validateMapTagValue(_map,true);
+                fmt::print("\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "==============================");
+                fmt::print("\n");
+            }
+            else if (vl->Type == "Forward")
+            {
+                fmt::print("\n\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "======= Forward Rules =======");
+                fmt::print("\n\n");
+                auto *frwd = (Forward*)vl;
+                validateForward(frwd,true);
+                fmt::print("\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "==============================");
+                fmt::print("\n");
+            }
+            else if (vl->Type == "RepeatingGroupRules")
+            {
+                fmt::print("\n\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "======= Repeating Group Tag Rules =======");
+                fmt::print("\n\n");
+                auto * rpg = (RepeatingGroupRules*)vl;
+                validateRepeatingGroupRules(rpg,true);
+                fmt::print("\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "==============================");
+                fmt::print("\n");
+            }
+            else if (vl->Type == "ClearTags")
+            {
+                fmt::print("\n\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "======= Clear Tag Rules =======");
+                fmt::print("\n\n");
+                auto *clear = (ClearTags*)vl;
+                validateClearTag(clear,true);
+                fmt::print("\n");
+                fmt::print(bg(fmt::color::yellow_green) | fg(fmt::color::dark_blue), "==============================");
+                fmt::print("\n");
             }
         }
     }
 }
 
+void RuleManager::validateMsg() {
+  //  std::cout << "49: " << m_pRuleMsg->getHeader().getField(49) << std::endl;
+//    std::cout << "56: " << m_pRuleMsg->getHeader().getField(56) << std::endl;
+    if (m_pRuleMsg->getHeader().isSetField(49)) {
+        std::string sendercompid = m_pRuleMsg->getHeader().getField(49);
+        fmt::print(fmt::emphasis::bold | fg(fmt::color::light_blue), "\n\nSenderCompId: {}\n", sendercompid);
+        //std::cout << "SenderCompId: " << sendercompid << std::endl;
+        if (inComingRules.count(sendercompid) > 0) {
+            for (auto rule : inComingRules[sendercompid]) {
+                bool hasCondition = false;
+                for (auto con : rule->condition) {
+                    if (m_pRuleMsg->getHeader().isSetField(con.first)) {
+                        if (m_pRuleMsg->getHeader().getField(con.first) == con.second) {
+                            hasCondition = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (hasCondition) {
+                    if (rule->Type == "EditTags") {
+                        auto *edit = (EditTags *) rule;
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green) | fg(fmt::color::gold), "===================== Edit Tag Rules ===================");
+                        fmt::print("\n\n");
+                        validateEditTags(edit);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "CopyTags") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Copy Tag Rules ===================");
+                        fmt::print("\n\n");
+                        auto *copy = (CopyTags *) rule;
+                        validateCopyTags(copy);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "SetValue") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== SetValue Tag Rules ===================");
+                        fmt::print("\n\n");
+                        auto *set = (SetValue *) rule;
+                        validateSetValue(set);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "MapTagValue") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Map Tag Value Rules ===================");
+                        fmt::print("\n\n");
+                        auto *_map = (MapTagValue *) rule;
+                        validateMapTagValue(_map);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "Forward") {
+//                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Forward Rules ===================");
+//                        fmt::print("\n\n");
+//                        auto *frwd = (Forward *) rule;
+//                        validateForward(frwd);
+//                        fmt::print("\n");
+//                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+//                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "RepeatingGroupRules") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Repeating Group Rules ===================");
+                        fmt::print("\n\n");
+                        auto *rpg = (RepeatingGroupRules *) rule;
+                        validateRepeatingGroupRules(rpg);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    }
+                    else if (rule->Type == "ClearTags")
+                    {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Clear Tag Rules ===================");
+                        fmt::print("\n\n");
+                        auto *clear = (ClearTags*)rule;
+                        validateClearTag(clear);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    }
+                }
+            }
+        }
+        else
+        {
+            fmt::print(fmt::emphasis::bold | fg(fmt::color::red), "No Rule For Sender Comp ID Exists\n");
+        }
+    }
+    if (m_pRuleMsg->getHeader().isSetField(56)) {
+        std::string targetcompid = m_pRuleMsg->getHeader().getField(56);
+        fmt::print(fmt::emphasis::bold | fg(fmt::color::light_blue), "TargetCompId: {}\n", targetcompid);
+       // std::cout << "TargetCompId: " << targetcompid << std::endl;
+        if (outGoingRules.count(targetcompid) > 0) {
+            for (auto rule : outGoingRules[targetcompid]) {
+                bool hasCondition = false;
+                for (auto con : rule->condition) {
+                    if (m_pRuleMsg->getHeader().isSetField(con.first)) {
+                        if (m_pRuleMsg->getHeader().getField(con.first) == con.second) {
+                            hasCondition = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (hasCondition) {
+                    if (rule->Type == "EditTags") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green) | fg(fmt::color::gold), "===================== Edit Tag Rules ===================");
+                        fmt::print("\n\n");
+                        auto *edit = (EditTags *) rule;
+                        validateEditTags(edit);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "CopyTags") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Copy Tag Rules ===================");
+                        fmt::print("\n\n");
+                        auto *copy = (CopyTags *) rule;
+                        validateCopyTags(copy);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "SetValue") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== SetValue Tag Rules ===================");
+                        fmt::print("\n\n");
+                        auto *set = (SetValue *) rule;
+                        validateSetValue(set);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "MapTagValue") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Map Tag Value Rules ===================");
+                        fmt::print("\n\n");
+                        auto *_map = (MapTagValue *) rule;
+                        validateMapTagValue(_map);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "Forward") {
+//                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Forward Rules ===================");
+//                        fmt::print("\n\n");
+//                        auto *frwd = (Forward *) rule;
+//                        validateForward(frwd);
+//                        fmt::print("\n");
+//                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+//                        fmt::print("\n\n\n");
+                    } else if (rule->Type == "RepeatingGroupRules") {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Repeating Group Rules ===================");
+                        fmt::print("\n\n");
+                        auto *rpg = (RepeatingGroupRules *) rule;
+                        validateRepeatingGroupRules(rpg);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    }
+                    else if (rule->Type == "ClearTags")
+                    {
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "===================== Clear Tag Rules ===================");
+                        fmt::print("\n\n");
+                        auto *clear = (ClearTags*)rule;
+                        validateClearTag(clear);
+                        fmt::print("\n");
+                        fmt::print(fmt::emphasis::bold | bg(fmt::color::green)| fg(fmt::color::gold), "=======================================================");
+                        fmt::print("\n\n\n");
+                    }
+                }
+            }
+        }
+        else
+        {
+            fmt::print(fmt::emphasis::bold | fg(fmt::color::red), "No Rule For Target Comp ID Exists\n");
+        }
+    }
+}
+void RuleManager::setRuleMsg(std::string& str)
+{
+    if (m_pRuleMsg != nullptr)
+    {
+        delete m_pRuleMsg;
+        m_pRuleMsg = nullptr;
+    }
+    m_pRuleMsg = new FIX::Message(str);
+ //   std::cout << "RuleMsg in setRules: " << m_pRuleMsg->toString()<< std::endl;
+}
+void RuleManager::setOrgMsg(std::string& str)
+{
+    if (m_pOrgMsg != nullptr)
+    {
+        delete m_pOrgMsg;
+        m_pOrgMsg = nullptr;
+    }
+    m_pOrgMsg = new FIX::Message(str);
+   // std::cout << "OrgMsg in setRules: " << m_pOrgMsg->toString()<< std::endl;
+}

@@ -5,4 +5,4 @@ set(RuleManagerSrcs
 set(RuleManagerHeaders
         ../../include/RuleManager/RuleManager.h
         )
-add_library(RuleManager STATIC ${RuleManagerSrcs} ${RuleManagerHeaders})
+add_library(RuleManager STATIC ${RuleManagerSrcs}  ${RuleManagerHeaders})
