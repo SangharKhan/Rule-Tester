@@ -107,7 +107,7 @@ void RuleManager::MapValues(Poco::Dynamic::Var routingrules, Rules* rulePtr)
         Poco::DynamicStruct strct = parseJson(rule.toString());
         if (strct.contains("File") && strct.contains("From") &&(strct.contains("To") || strct.contains("ToHeader")))
         {
-            std::string fileName = "/home/skhan/Repo/fix/FIXHub/config/";
+            std::string fileName = m_confFilePath;
             fileName = fileName + strct["File"].toString();
             int from = std::stoi(strct["From"].toString());
             int to = 0;
@@ -349,8 +349,8 @@ void RuleManager::pRuleSet(Poco::Dynamic::Var routingrules,  std::vector<Rules*>
 
 void RuleManager::loadConfig()
 {
-    std::string fileName(getFileData("../../config/ConfFilePath.txt"));
-    std::string fileData(getFileData(fileName));
+    m_confFilePath = getFileData("../../config/ConfFilePath.txt");
+    std::string fileData(getFileData(m_confFilePath + "config.json"));
 
     Poco::DynamicStruct strct = parseJson(fileData);
     if (strct.contains("RoutingRuleSet"))

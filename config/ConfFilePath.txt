@@ -1,1 +1,1 @@
-/home/skhan/Repo/fix/FIXHub/config/config.json
+/home/skhan/Repo/FIXHub_new/FIXHub/config/

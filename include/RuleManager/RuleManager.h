@@ -24,6 +24,7 @@ private:
     ruleMap outGoingRules;
     FIX::Message* m_pRuleMsg = nullptr;
     FIX::Message* m_pOrgMsg = nullptr;
+    std::string m_confFilePath;
     std::string getFileData(std::string);
     void breakString(std::string, std::string&, std::string&);
     Poco::DynamicStruct parseJson(std::string);
